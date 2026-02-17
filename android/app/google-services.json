@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "307349870313",
+    "project_id": "apk-pmr-c878a",
+    "storage_bucket": "apk-pmr-c878a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:307349870313:android:8813d344f617d412860278",
+        "android_client_info": {
+          "package_name": "com.example.app1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmfd8d7FTv4JMfc_iYf03qIXIl3BeFUzA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:307349870313:android:a55fbc22fc184cdd860278",
+        "android_client_info": {
+          "package_name": "com.example.jobsheet3"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmfd8d7FTv4JMfc_iYf03qIXIl3BeFUzA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
