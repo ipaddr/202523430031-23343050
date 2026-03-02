@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:app1/constants/routes.dart';
 import 'package:app1/utilities/show_error_dialog.dart';
 import 'package:firebase_auth/firebase_auth.dart';
