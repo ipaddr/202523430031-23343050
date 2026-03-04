@@ -33,8 +33,14 @@ class _NotesViewState extends State<NotesView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Main UI'),
+        title: const Text('Catatan'),
         actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).pushNamed(newNoteRoute);
+            },
+            icon: const Icon(Icons.add),           
+          ),
           PopupMenuButton<MenuAction>(
             onSelected: (value) async {
               switch (value) {
@@ -44,7 +50,7 @@ class _NotesViewState extends State<NotesView> {
                     await AuthService.firebase().logOut();
                     Navigator.of(context).pushNamedAndRemoveUntil(
                       loginRoute, 
-                      (route) => false,
+                      (_) => false,
                     );
                   }
               }
