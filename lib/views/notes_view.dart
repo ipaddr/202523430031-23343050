@@ -2,6 +2,8 @@ import 'package:app1/constants/routes.dart';
 import 'package:app1/enums/menu_action.dart';
 import 'package:app1/services/auth/auth_service.dart';
 import 'package:app1/services/crud/notes_service.dart';
+import 'package:app1/utilities/dialogs/logout_dialog.dart';
+import 'package:app1/views/notes/notes_list_view.dart';
 import 'package:flutter/material.dart';
 
 class NotesView extends StatefulWidget {
@@ -21,12 +23,6 @@ class _NotesViewState extends State<NotesView> {
     _notesService = NotesService();
     // _notesService.open();    
     super.initState();
-  }
-
-  @override
-  void dispose() {
-    _notesService.close();    
-    super.dispose();
   }
 
   @override
@@ -69,15 +65,35 @@ class _NotesViewState extends State<NotesView> {
       body: FutureBuilder(
         future: _notesService.getOrCreateUser(email: userEmail), 
         builder: (context, snapshot) {
-          switch (snapshot.connectionState) {            
-            case ConnectionState.waiting:
-                            
-            case ConnectionState.active:
-              return const Text('waiting for all notes...');  
+          switch (snapshot.connectionState) {  
+            case ConnectionState.done:
+              return StreamBuilder(
+                stream: _notesService.allNotes,
+                builder: (context, snapshot) {
+                  switch (snapshot.connectionState) {
+                    case ConnectionState.waiting:
+                    case ConnectionState.active:
+                      if (snapshot.hasData){
+                        final allNotes = snapshot.data as List<DatabaseNote>;
+                        return NotesListView(
+                          notes: allNotes,
+                          onDeleteNote: (note) async {                            
+                              await _notesService.deleteNote(id: note.id);                                                  
+                          },
+                        );                                                
+                      } else {
+                        return const CircularProgressIndicator();
+                      }
+                    default:
+                      return const CircularProgressIndicator();
+                  }
+                },
+              );
             default:
-              return const CircularProgressIndicator();                                  
+              return const CircularProgressIndicator();          
           }
-      }),
+        }
+      ),
     );
   }
 }
