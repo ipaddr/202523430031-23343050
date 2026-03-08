@@ -1,8 +1,8 @@
 import 'package:app1/constants/routes.dart';
 import 'package:app1/services/auth/auth_service.dart';
 import 'package:app1/views/login_view.dart';
-import 'package:app1/views/notes/new_note_view.dart';
-import 'package:app1/views/notes_view.dart';
+import 'package:app1/views/notes/create_update_note_view.dart';
+import 'package:app1/views/notes/notes_view.dart';
 import 'package:app1/views/register_view.dart';
 import 'package:app1/views/verify_email_view.dart';
 import 'package:flutter/material.dart';
@@ -22,7 +22,7 @@ void main() async {
         registerRoute: (context) => const RegisterView(),
         notesRoute: (context) => const NotesView(),
         verifyEmailRoute: (context) => const VerifyEmailView(),
-        newNoteRoute: (context) => const NewNoteView(),
+        createOrUpdateNoteRoute: (context) => const CreateUpdateNoteView(),
       },
     ),
   );
