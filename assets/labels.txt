@@ -1,0 +1,4 @@
+0 marah
+1 sedih
+2 netral
+3 senang
