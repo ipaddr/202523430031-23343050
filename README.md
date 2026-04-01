@@ -1,8 +1,8 @@
-# 😊 Klasifikasi Ekspresi Wajah
+# Klasifikasi Ekspresi Wajah
 
 Aplikasi mobile Flutter untuk mendeteksi dan mengklasifikasikan ekspresi wajah secara **real-time** menggunakan kamera smartphone dan model **TensorFlow Lite** yang dilatih melalui [Teachable Machine](https://teachablemachine.withgoogle.com/).
 
-## 🎯 Tujuan Aplikasi
+## Tujuan Aplikasi
 
 Aplikasi ini memanfaatkan kamera (depan atau belakang) untuk mengenali 4 jenis ekspresi wajah secara langsung:
 
@@ -13,15 +13,7 @@ Aplikasi ini memanfaatkan kamera (depan atau belakang) untuk mengenali 4 jenis e
 | 2 | Netral | 😐 |
 | 3 | Senang | 😊 |
 
-## ✨ Fitur Utama
-
-- **Deteksi Real-Time** — Klasifikasi ekspresi wajah langsung dari kamera
-- **Switch Kamera** — Beralih antara kamera depan dan belakang
-- **Start/Stop Deteksi** — Kontrol kapan proses deteksi berjalan
-- **Overlay Hasil** — Menampilkan label emosi, emoji, dan persentase confidence dengan desain glassmorphism
-- **Performa Smooth** — Throttle inferensi ~5 FPS agar UI tetap responsif
-
-## 📦 Teknologi yang Digunakan
+## Teknologi yang Digunakan
 
 | Teknologi | Kegunaan |
 |-----------|----------|
@@ -31,29 +23,6 @@ Aplikasi ini memanfaatkan kamera (depan atau belakang) untuk mengenali 4 jenis e
 | [camera](https://pub.dev/packages/camera) `^0.10.0` | Akses kamera perangkat dan streaming frame |
 | [image](https://pub.dev/packages/image) `^4.0.0` | Preprocessing gambar (resize, konversi format) |
 | [Teachable Machine](https://teachablemachine.withgoogle.com/) | Platform untuk melatih model klasifikasi gambar |
-
-## 📁 Struktur Proyek
-
-```
-klasifikasi_ekspresi/
-├── assets/
-│   ├── model_unquant.tflite      # Model TFLite dari Teachable Machine
-│   └── labels.txt                # Daftar label ekspresi (4 kelas)
-├── lib/
-│   ├── main.dart                 # Entry point aplikasi + konfigurasi tema
-│   ├── screens/
-│   │   └── camera_screen.dart    # Halaman utama kamera full-screen
-│   ├── services/
-│   │   └── tflite_service.dart   # Service untuk load model & inferensi
-│   └── widgets/
-│       └── result_overlay.dart   # Widget overlay hasil prediksi
-├── android/
-│   └── app/
-│       ├── build.gradle.kts      # Konfigurasi Android (minSdk, aaptOptions)
-│       └── src/main/
-│           └── AndroidManifest.xml  # Permission kamera
-└── pubspec.yaml                  # Dependencies & asset registration
-```
 
 ## 🔧 Cara Kerja (Alur Proses)
 
@@ -126,7 +95,7 @@ klasifikasi_ekspresi/
    flutter build apk --release
    ```
 
-> ⚠️ **Penting**: Aplikasi ini harus dijalankan di **perangkat fisik Android** karena memerlukan akses kamera dan akselerasi hardware untuk TFLite.
+> **Penting**: Aplikasi ini harus dijalankan di **perangkat fisik Android** karena memerlukan akses kamera dan akselerasi hardware untuk TFLite.
 
 ## 📱 Cara Penggunaan
 
