@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:io' show Platform;
 import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:image/image.dart' as img;
@@ -23,11 +24,27 @@ class TfliteService {
 
   /// Load the TFLite model from assets
   Future<void> loadModel() async {
+    final options = InterpreterOptions()..threads = 2;
+    if (Platform.isAndroid) {
+      options.useNnApiForAndroid = true;
+    }
+
     try {
-      _interpreter = await Interpreter.fromAsset('assets/model_unquant.tflite');
+      _interpreter = await Interpreter.fromAsset(
+        'assets/model_unquant.tflite',
+        options: options,
+      );
     } catch (e) {
       // Fallback: some versions of tflite_flutter resolve paths differently
-      _interpreter = await Interpreter.fromAsset('model_unquant.tflite');
+      try {
+        _interpreter = await Interpreter.fromAsset(
+          'model_unquant.tflite',
+          options: options,
+        );
+      } catch (_) {
+        // Last fallback without custom options.
+        _interpreter = await Interpreter.fromAsset('model_unquant.tflite');
+      }
     }
 
     // Cache input tensor shape and allocate a reusable input buffer.

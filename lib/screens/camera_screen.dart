@@ -28,8 +28,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   double _currentConfidence = 0.0;
   final Queue<_PredictionSample> _recentPredictions = Queue<_PredictionSample>();
 
-  // Throttle inference to reduce dropped frames/GC pressure
-  static const int _inferenceIntervalMs = 250; // ~4 FPS
+  // Adaptive throttle to reduce dropped frames/GC pressure.
+  static const int _minInferenceIntervalMs = 220;
+  static const int _maxInferenceIntervalMs = 550;
+  int _inferenceIntervalMs = 280;
   static const int _predictionWindowSize = 7;
   static const int _minVotesForStable = 3;
   static const double _minConfidenceForVote = 0.45;
@@ -87,7 +89,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     final prevController = _controller;
     final newController = CameraController(
       camera,
-      ResolutionPreset.high,
+      ResolutionPreset.medium,
       enableAudio: false,
       imageFormatGroup: ImageFormatGroup.yuv420,
     );
@@ -137,6 +139,8 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     if (!_isModelLoaded) return;
 
     _recentPredictions.clear();
+    _inferenceIntervalMs = 280;
+    _lastInferenceTimeMs = 0;
     setState(() => _isDetecting = true);
     _controller!.startImageStream(_onCameraFrame);
   }
@@ -163,35 +167,45 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
 
     _isProcessing = true;
     _lastInferenceTimeMs = now;
+    final sw = Stopwatch()..start();
 
-    final camera = _cameras[_selectedCameraIdx];
-    final result = _tfliteService.classifyImage(
-      image,
-      camera.sensorOrientation,
-      mirror: camera.lensDirection == CameraLensDirection.front,
-    );
+    try {
+      final camera = _cameras[_selectedCameraIdx];
+      final result = _tfliteService.classifyImage(
+        image,
+        camera.sensorOrientation,
+        mirror: camera.lensDirection == CameraLensDirection.front,
+      );
 
-    if (result != null) {
-      final label = result['label'] as String;
-      final confidence = (result['confidence'] as double);
+      if (result != null) {
+        final label = result['label'] as String;
+        final confidence = (result['confidence'] as double);
 
-      if (confidence >= _minConfidenceForVote) {
-        _recentPredictions.addLast(_PredictionSample(label, confidence));
-        while (_recentPredictions.length > _predictionWindowSize) {
-          _recentPredictions.removeFirst();
+        if (confidence >= _minConfidenceForVote) {
+          _recentPredictions.addLast(_PredictionSample(label, confidence));
+          while (_recentPredictions.length > _predictionWindowSize) {
+            _recentPredictions.removeFirst();
+          }
+        }
+
+        final stable = _computeStablePrediction();
+        if (stable != null && mounted) {
+          final labelChanged = _currentLabel != stable.label;
+          final confidenceChanged = (_currentConfidence - stable.confidence).abs() > 0.03;
+          if (labelChanged || confidenceChanged) {
+            setState(() {
+              _currentLabel = stable.label;
+              _currentConfidence = stable.confidence;
+            });
+          }
         }
       }
-
-      final stable = _computeStablePrediction();
-      if (stable != null && mounted) {
-        setState(() {
-          _currentLabel = stable.label;
-          _currentConfidence = stable.confidence;
-        });
-      }
+    } finally {
+      sw.stop();
+      final int suggested = (sw.elapsedMilliseconds * 1.4).round();
+      _inferenceIntervalMs = suggested.clamp(_minInferenceIntervalMs, _maxInferenceIntervalMs);
+      _isProcessing = false;
     }
-
-    _isProcessing = false;
   }
 
   _PredictionSample? _computeStablePrediction() {
@@ -269,154 +283,178 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       backgroundColor: Colors.black,
       body: _errorMessage != null
           ? _buildErrorView()
-          : Stack(
-              fit: StackFit.expand,
-              children: [
-                // Camera preview
-                _buildCameraPreview(),
-
-                // Top gradient overlay
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: 120,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black.withValues(alpha: 0.6),
-                          Colors.transparent,
-                        ],
+          : SafeArea(
+              child: Column(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Klasifikasi Ekspresi Wajah',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1,
+                        ),
                       ),
                     ),
                   ),
-                ),
-
-                // App title
-                Positioned(
-                  top: MediaQuery.of(context).padding.top + 12,
-                  left: 20,
-                  child: const Text(
-                    'Ekspresi Wajah',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
+                  const SizedBox(height: 12),
+                  Expanded(
+                    flex: 6,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: _buildCameraPreview(),
                     ),
                   ),
-                ),
-
-                // Loading indicator for model
-                if (!_isModelLoaded)
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(color: Color(0xFF6C63FF)),
-                          SizedBox(height: 16),
-                          Text(
-                            'Memuat model...',
-                            style: TextStyle(color: Colors.white, fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _buildResultPanel(),
                   ),
-
-                // Result overlay
-                if (_currentLabel != null && _isDetecting)
-                  Positioned(
-                    bottom: 140,
-                    left: 20,
-                    right: 20,
-                    child: ResultOverlay(
-                      label: _currentLabel!,
-                      confidence: _currentConfidence,
-                    ),
-                  ),
-
-                // Bottom controls
-                _buildBottomControls(),
-              ],
+                  const SizedBox(height: 12),
+                  _buildBottomControls(),
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
     );
   }
 
   Widget _buildCameraPreview() {
+    final borderRadius = BorderRadius.circular(24);
+
     if (!_isCameraReady || _controller == null || !_controller!.value.isInitialized) {
-      return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF6C63FF)),
+      return Container(
+        decoration: BoxDecoration(
+          borderRadius: borderRadius,
+          color: const Color(0xFF111111),
+          border: Border.all(color: Colors.white12),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(color: Color(0xFF6C63FF)),
+        ),
       );
     }
 
-    final size = MediaQuery.of(context).size;
     final previewSize = _controller!.value.previewSize!;
-    // Camera preview size is in landscape; swap for portrait
     final cameraAspect = previewSize.height / previewSize.width;
-    final screenAspect = size.width / size.height;
 
-    return Center(
-      child: Transform.scale(
-        scale: cameraAspect / screenAspect < 1
-            ? 1 / (cameraAspect / screenAspect)
-            : cameraAspect / screenAspect,
-        child: CameraPreview(_controller!),
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        color: const Color(0xFF111111),
+        border: Border.all(color: Colors.white12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Center(
+            child: AspectRatio(
+              aspectRatio: cameraAspect,
+              child: CameraPreview(_controller!),
+            ),
+          ),
+          if (!_isModelLoaded)
+            Container(
+              color: Colors.black54,
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: Color(0xFF6C63FF)),
+                    SizedBox(height: 12),
+                    Text(
+                      'Memuat model...',
+                      style: TextStyle(color: Colors.white, fontSize: 15),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 
+  Widget _buildResultPanel() {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      child: (_currentLabel != null && _isDetecting)
+          ? ResultOverlay(
+              key: ValueKey('result-${_currentLabel!}'),
+              label: _currentLabel!,
+              confidence: _currentConfidence,
+            )
+          : Container(
+              key: const ValueKey('hint'),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _isDetecting ? Icons.hourglass_top_rounded : Icons.info_outline,
+                    color: Colors.white70,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _isDetecting
+                          ? 'Menunggu prediksi stabil...'
+                          : 'Tekan tombol Play untuk memulai deteksi ekspresi',
+                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
   Widget _buildBottomControls() {
-    return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).padding.bottom + 20,
-          top: 20,
-          left: 20,
-          right: 20,
-        ),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [
-              Colors.black.withValues(alpha: 0.7),
-              Colors.transparent,
-            ],
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          // Switch camera button
+          _buildControlButton(
+            icon: Icons.cameraswitch_rounded,
+            label: 'Switch',
+            onTap: _cameras.length > 1 ? _switchCamera : null,
           ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            // Switch camera button
-            _buildControlButton(
-              icon: Icons.cameraswitch_rounded,
-              label: 'Switch',
-              onTap: _cameras.length > 1 ? _switchCamera : null,
-            ),
-            // Start/Stop detection button
-            _buildDetectionButton(),
-            // Placeholder for symmetry
-            _buildControlButton(
-              icon: _isDetecting ? Icons.visibility : Icons.visibility_off,
-              label: _isDetecting ? 'Aktif' : 'Mati',
-              onTap: null,
-              isStatus: true,
-            ),
-          ],
-        ),
+          // Start/Stop detection button
+          _buildDetectionButton(),
+          // Placeholder for symmetry
+          _buildControlButton(
+            icon: _isDetecting ? Icons.visibility : Icons.visibility_off,
+            label: _isDetecting ? 'Aktif' : 'Mati',
+            onTap: null,
+            isStatus: true,
+          ),
+        ],
       ),
     );
   }
